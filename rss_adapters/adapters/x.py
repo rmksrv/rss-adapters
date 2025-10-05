@@ -59,6 +59,10 @@ class XAdapter(Adapter):
     def __init__(self, username: str) -> None:
         self.username = username
 
+    @property
+    def favicon(self) -> str | None:
+        return "/static/favicons/"
+
     def fetch_feed(self) -> Feed:
         rss = NitterRawAdapter(self.username).fetch_feed()
         author_name = None
@@ -93,6 +97,7 @@ class XAdapter(Adapter):
             ))
         return Feed(
             title=rss.channel.title,
+            favicon=self.favicon,
             home_page_url=rss.channel.link,
             authors=authors,
             language=rss.channel.language,

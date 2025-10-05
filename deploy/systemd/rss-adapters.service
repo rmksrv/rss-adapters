@@ -34,10 +34,7 @@ RestartSec=5s
 TimeoutStopSec=20s
 KillSignal=SIGINT
 
-ExecStart=/usr/local/bin/uv run fastapi run rss_adapters/main.py \
-  --host 127.0.0.1 \
-  --port ${PORT} \
-  --log-level ${LOG_LEVEL}
+ExecStart=/usr/local/bin/uv run fastapi run rss_adapters/main.py --host 127.0.0.1 --port ${PORT}
 
 [Install]
 WantedBy=multi-user.target

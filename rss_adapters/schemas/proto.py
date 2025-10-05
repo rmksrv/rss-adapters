@@ -65,11 +65,10 @@ class Item(BaseModel):
 
 class Feed(BaseModel):
     version: str = "https://jsonfeed.org/version/1.1"
-    # version: str = r"https://jsonfeed.org/version/1"
     title: str = ""
     expired: bool = False
     home_page_url: str | None = None
     authors: list[Author] = pdc.Field(default_factory=list)
-    # author: Author = pdc.Field()
     language: str | None = None
     items: list[Item] = pdc.Field(default_factory=list)
+    favicon: str | None = None
