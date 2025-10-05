@@ -1,3 +1,5 @@
+import re
+
 import httpx
 from dateutil.parser import parse as dateparse
 from xmltodict import parse as xmlparse
@@ -18,11 +20,19 @@ def _rss_url(username: str) -> str:
 
 
 def _prettify_item_title(val: str) -> str:
-    res = val
+    res = ". ".join(re.split(r"[.\n!?]", val)[:2])
     if len(res) > MAX_TITLE_LEN:
         res = f"{res[:MAX_TITLE_LEN - 3]}..."
     res = res.replace("\n", " ")
     return res
+
+
+def _find_first_img_url(html: str) -> str | None:
+    matched = re.search(r'<img( [a-zA-Z]+=.*)* src="(.*)"( [a-zA-Z]+=.*)*>', html)
+    if not matched:
+        return None
+    return matched.group(2)
+
 
 
 class XAdapter(Adapter):
@@ -38,15 +48,21 @@ class XAdapter(Adapter):
         items = []
         for raw_item in rss.channel.item:
             title = _prettify_item_title(raw_item.title)
+            image = _find_first_img_url(raw_item.description)
             date_published = dateparse(raw_item.pub_date)
+            attachments = [
+                Attachment(url="https://google.com", title="Go to google", mime_type="text/html"),
+                Attachment(url="https://ya.ru", title="Go to yandex", mime_type="text/html"),
+                Attachment(url="https://duckduckgo.com", title="Go to duckduckgo", mime_type="text/html"),
+            ]
             items.append(Item(
                 id=raw_item.link,
                 title=title,
                 content_html=raw_item.description,
                 summary=raw_item.title,
-                image=None,  # TODO: lookup in content
+                image=image,
                 date_published=date_published,
-                attachments=[],  # TODO: parse comments
+                attachments=attachments,
             ))
         return Feed(
             version=rss.version,
@@ -62,3 +78,4 @@ class XAdapter(Adapter):
             language=rss.channel.language,
             items=items,
         )
+

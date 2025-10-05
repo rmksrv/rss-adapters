@@ -19,4 +19,3 @@ def healthcheck():
 def x_rss_feed(username: str):
     return XAdapter(username).fetch_feed()
 
-
