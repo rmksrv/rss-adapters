@@ -5,13 +5,13 @@ from dateutil.parser import parse as dateparse
 from xmltodict import parse as xmlparse
 
 from rss_adapters.adapters.proto import Adapter
-from rss_adapters.schemas.proto import Feed, Item, Author, Attachment
+from rss_adapters.schemas.proto import Feed, Item, Author
 from rss_adapters.schemas.nitter import NitterRss
 
 
 USER_AGENT = r"FreshRSS/1.27.1 (Feed Parser; http://freshrss.org; Allow like Gecko) Build/1"
 
-MAX_TITLE_LEN = 64
+MAX_TITLE_LEN = 100
 RSS_URL_TEMPL = r"https://nitter.privacyredirect.com/{username}/rss"
 
 
@@ -60,10 +60,7 @@ class XAdapter(Adapter):
         self.username = username
 
     def fetch_feed(self) -> Feed:
-        resp = httpx.get(
-            _rss_url(self.username), headers={"User-Agent": USER_AGENT}
-        )
-        rss = NitterRss.model_validate(xmlparse(resp.content).get("rss"))
+        rss = NitterRawAdapter(self.username).fetch_feed()
         author_name = None
         if username := _extract_username(rss.channel.link):
             author_name = f"@{username}"
@@ -77,7 +74,9 @@ class XAdapter(Adapter):
             title = _prettify_item_title(raw_item.title)
             image = _find_first_img_url(raw_item.description)
             date_published = dateparse(raw_item.pub_date)
-            item_authors = [Author(name=raw_item.dc_creator), *authors]
+            item_authors = [*authors]
+            if raw_item.dc_creator != author_name:
+                item_authors.append(Author(name=raw_item.dc_creator))
             attachments = []
             items.append(Item(
                 id=raw_item.link,

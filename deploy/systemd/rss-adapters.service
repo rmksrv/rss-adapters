@@ -1,0 +1,44 @@
+[Unit]
+Description=RSS Adapters
+After=network.target
+Wants=network-online.target
+
+[Service]
+User=rssapp
+Group=rssapp
+
+WorkingDirectory=/opt/rss-adapters
+EnvironmentFile=/etc/default/rss-adapters
+
+UMask=007
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictRealtime=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallFilter=@system-service
+LockPersonality=true
+CapabilityBoundingSet=
+AmbientCapabilities=
+
+StandardOutput=journal
+StandardError=journal
+
+Restart=always
+RestartSec=5s
+TimeoutStopSec=20s
+KillSignal=SIGINT
+
+ExecStart=/usr/local/bin/uv run fastapi run rss_adapters/main.py \
+  --host 127.0.0.1 \
+  --port ${PORT} \
+  --log-level ${LOG_LEVEL}
+
+[Install]
+WantedBy=multi-user.target
+
