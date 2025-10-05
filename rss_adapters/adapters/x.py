@@ -34,6 +34,25 @@ def _find_first_img_url(html: str) -> str | None:
     return matched.group(2)
 
 
+def _extract_username(url: str) -> str:
+    matched = re.search(r"http[s]://(.*)/(.*)", url)
+    if not matched:
+        return ""
+    return matched.group(2)
+
+
+class NitterRawAdapter:
+
+    def __init__(self, username: str) -> None:
+        self.username = username
+
+    def fetch_feed(self) -> NitterRss:
+        resp = httpx.get(
+            _rss_url(self.username), headers={"User-Agent": USER_AGENT}
+        )
+        rss = NitterRss.model_validate(xmlparse(resp.content).get("rss"))
+        return rss
+
 
 class XAdapter(Adapter):
 
@@ -45,36 +64,38 @@ class XAdapter(Adapter):
             _rss_url(self.username), headers={"User-Agent": USER_AGENT}
         )
         rss = NitterRss.model_validate(xmlparse(resp.content).get("rss"))
+        author_name = None
+        if username := _extract_username(rss.channel.link):
+            author_name = f"@{username}"
+        authors = [Author(
+            name=author_name, 
+            url=rss.channel.link, 
+            avatar=rss.channel.image.url,
+        )]
         items = []
         for raw_item in rss.channel.item:
             title = _prettify_item_title(raw_item.title)
             image = _find_first_img_url(raw_item.description)
             date_published = dateparse(raw_item.pub_date)
-            attachments = [
-                Attachment(url="https://google.com", title="Go to google", mime_type="text/html"),
-                Attachment(url="https://ya.ru", title="Go to yandex", mime_type="text/html"),
-                Attachment(url="https://duckduckgo.com", title="Go to duckduckgo", mime_type="text/html"),
-            ]
+            item_authors = [Author(name=raw_item.dc_creator), *authors]
+            attachments = []
             items.append(Item(
                 id=raw_item.link,
+                url=raw_item.link,
                 title=title,
+                content_text=raw_item.title,
                 content_html=raw_item.description,
                 summary=raw_item.title,
                 image=image,
+                banner_image=image,
                 date_published=date_published,
                 attachments=attachments,
+                authors=item_authors,
             ))
         return Feed(
-            version=rss.version,
             title=rss.channel.title,
             home_page_url=rss.channel.link,
-            authors=[
-                Author(
-                    name=rss.channel.title, 
-                    url=rss.channel.link, 
-                    avatar=rss.channel.image.url,
-                )
-            ],
+            authors=authors,
             language=rss.channel.language,
             items=items,
         )

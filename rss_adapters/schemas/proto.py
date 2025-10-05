@@ -1,10 +1,19 @@
 import typing as t
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pydantic as pdc
 
 
-class Author(pdc.BaseModel):
+def format_datetime(dt: datetime) -> str:
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.isoformat(timespec="seconds")
+
+
+class BaseModel(pdc.BaseModel): ...
+
+
+class Author(BaseModel):
     name: str | None = None
     url: str | None = None
     avatar: str | None = None
@@ -16,7 +25,7 @@ class Author(pdc.BaseModel):
         return self
 
 
-class Attachment(pdc.BaseModel):
+class Attachment(BaseModel):
     url: str
     mime_type: str
     title: str | None = None
@@ -24,7 +33,7 @@ class Attachment(pdc.BaseModel):
     duration_in_seconds: int | None = None
 
 
-class Item(pdc.BaseModel):
+class Item(BaseModel):
     id: str
     title: str | None = None
     content_text: str | None = None
@@ -47,12 +56,20 @@ class Item(pdc.BaseModel):
             raise ValueError("Neither `content_text` nor `content_html` are present")
         return self
 
+    @pdc.field_serializer("date_published", "date_modified", mode="plain", when_used="json")
+    def dump_dates(self, val: datetime | None) -> str | None:
+        if val is None:
+            return None
+        return format_datetime(val)
 
-class Feed(pdc.BaseModel):
-    version: str
-    title: str
+
+class Feed(BaseModel):
+    version: str = "https://jsonfeed.org/version/1.1"
+    # version: str = r"https://jsonfeed.org/version/1"
+    title: str = ""
     expired: bool = False
     home_page_url: str | None = None
     authors: list[Author] = pdc.Field(default_factory=list)
+    # author: Author = pdc.Field()
     language: str | None = None
     items: list[Item] = pdc.Field(default_factory=list)
