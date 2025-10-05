@@ -87,7 +87,7 @@ class XAdapter(Adapter):
 
     @property
     def favicon(self) -> str | None:
-        return "/static/favicons/nitter-favicon-32x32.png"
+        return "https://x.com/favicon.ico"
 
     def fetch_feed(self) -> Feed:
         rss = NitterRawAdapter(self.username).fetch_feed()
