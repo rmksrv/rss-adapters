@@ -1,4 +1,5 @@
 import re
+from urllib.parse import unquote
 
 import httpx
 from dateutil.parser import parse as dateparse
@@ -13,6 +14,11 @@ USER_AGENT = r"FreshRSS/1.27.1 (Feed Parser; http://freshrss.org; Allow like Gec
 
 MAX_TITLE_LEN = 100
 RSS_URL_TEMPL = r"https://nitter.privacyredirect.com/{username}/rss"
+TWIMG_URL_TEMPL = r"https://pbs.twimg.com/media/{filename}"
+IMG_SRC_RE = re.compile(
+    r'(<img[^>]*?\bsrc\s*=\s*["\'])([^"\']+)(["\'])',
+    flags=re.IGNORECASE
+)
 
 
 def _rss_url(username: str) -> str:
@@ -54,6 +60,26 @@ class NitterRawAdapter:
         return rss
 
 
+def _get_twimg_url(url: str) -> str:
+    url = unquote(url)
+    filename = url.rsplit("/", maxsplit=1)[-1]
+    res = TWIMG_URL_TEMPL.format(filename=filename)
+    return res
+
+
+def _twimgify_images(html: str) -> str:
+
+    def repl(match: re.Match) -> str:
+        prefix, url, suffix = match.groups()
+        try:
+            new_url = _get_twimg_url(url)
+        except Exception:
+            new_url = url
+        return f"{prefix}{new_url}{suffix}"
+
+    return IMG_SRC_RE.sub(repl, html)
+
+
 class XAdapter(Adapter):
 
     def __init__(self, username: str) -> None:
@@ -76,7 +102,9 @@ class XAdapter(Adapter):
         items = []
         for raw_item in rss.channel.item:
             title = _prettify_item_title(raw_item.title)
-            image = _find_first_img_url(raw_item.description)
+            image = None
+            if img_in_content := _find_first_img_url(raw_item.description):
+                image = _get_twimg_url(img_in_content)
             date_published = dateparse(raw_item.pub_date)
             item_authors = [*authors]
             if raw_item.dc_creator != author_name:
@@ -87,10 +115,9 @@ class XAdapter(Adapter):
                 url=raw_item.link,
                 title=title,
                 content_text=raw_item.title,
-                content_html=raw_item.description,
+                content_html=_twimgify_images(raw_item.description),
                 summary=raw_item.title,
                 image=image,
-                banner_image=image,
                 date_published=date_published,
                 attachments=attachments,
                 authors=item_authors,
